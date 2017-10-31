@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
+using System.IO.Pipes;
 using System.Net.Sockets;
+using System.Threading;
 using Microsoft.CodeAnalysis.CompilerServer;
 
 namespace UnixDomainSocketTest
@@ -47,6 +49,37 @@ namespace UnixDomainSocketTest
             }
         }
 
+        private static void WaitForConnectionClose()
+        {
+            var server = new NamedPipeServerStream(
+                PipeName,
+                PipeDirection.InOut,
+                NamedPipeServerStream.MaxAllowedServerInstances,
+                PipeTransmissionMode.Byte,
+                PipeOptions.Asynchronous);
+            var thread = new Thread(() =>
+            {
+                Console.WriteLine("Begin wait for connection");
+                try
+                {
+                    server.WaitForConnection();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Exception!");
+                    Console.WriteLine(e);
+                }
+                Console.WriteLine("End wait for connection");
+            });
+            thread.Start();
+            Thread.Sleep(1000);
+            Console.WriteLine("Started thread, closing stream");
+            server.Close();
+            Console.WriteLine("Closed stream, Join()'ing thread");
+            thread.Join();
+            Console.WriteLine("Joined thread, done");
+        }
+
         public static void Main(string[] args)
         {
             if (args.Length != 1)
@@ -62,6 +95,9 @@ namespace UnixDomainSocketTest
                     break;
                 case "client":
                     RunClient();
+                    break;
+                case "closeserver":
+                    WaitForConnectionClose();
                     break;
             }
         }
